@@ -2,4 +2,6 @@ body { font-family: system-ui, sans-serif; margin: 0; background: #f4f6f8; color
 .shell { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
 .panel { background: #fff; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; }
 .station-card { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; }
-.field-error { color: #c53030; }
+.field-error { color: #c53030; }/* change 1 */
+/* change 2 */
+/* change 3 */
