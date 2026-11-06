@@ -1,0 +1,92 @@
+name: sdlc
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE: citybike:${{ github.sha }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image once
+        run: docker build --build-arg GITHUB_SHA=${{ github.sha }} -t "$IMAGE" .
+      - name: Save image as tar
+        run: docker save "$IMAGE" -o /tmp/citybike.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: citybike-image
+          path: /tmp/citybike.tar
+          retention-days: 1
+
+  staging:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: citybike-image
+          path: /tmp
+      - run: docker load -i /tmp/citybike.tar
+      - name: Staging gate
+        run: bash scripts/run-gate.sh "$IMAGE" staging 4173 citybike-gate -e APP_ENV=staging
+
+  uat:
+    needs: staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: citybike-image
+          path: /tmp
+      - run: docker load -i /tmp/citybike.tar
+      - name: UAT gate
+        run: bash scripts/run-gate.sh "$IMAGE" uat 4173 citybike-gate -e APP_ENV=uat
+
+  oat:
+    needs: uat
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: citybike-image
+          path: /tmp
+      - run: docker load -i /tmp/citybike.tar
+      - name: OAT gate
+        run: bash scripts/run-gate.sh "$IMAGE" oat 4173 citybike-gate -e APP_ENV=oat
+
+  preprod:
+    needs: oat
+    runs-on: ubuntu-latest
+    env:
+      PROD_API_KEY: ${{ secrets.PROD_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: citybike-image
+          path: /tmp
+      - run: docker load -i /tmp/citybike.tar
+      - name: Preprod gate
+        run: bash scripts/run-gate.sh "$IMAGE" preprod 4173 citybike-gate -e APP_ENV=preprod -e PROD_API_KEY
+
+  prod:
+    needs: preprod
+    runs-on: ubuntu-latest
+    env:
+      PROD_API_KEY: ${{ secrets.PROD_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: citybike-image
+          path: /tmp
+      - run: docker load -i /tmp/citybike.tar
+      - name: Prod gate
+        run: bash scripts/run-gate.sh "$IMAGE" prod 4173 citybike-prod -e APP_ENV=production -e PROD_API_KEY
